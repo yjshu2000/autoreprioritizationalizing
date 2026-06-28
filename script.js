@@ -86,35 +86,45 @@
   }
 
   // ---------- schedule (compute on open) ----------
+  function boundaryAt(date, atMin) {
+    var b = new Date(date); b.setHours(0,0,0,0);
+    b.setMinutes(atMin);
+    return b;
+  }
+
+  function stepDays(date, days) {
+    var d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d;
+  }
+
   function lastBoundaryBefore(now) {
-    var everyMs = state.schedule.everyDays * 24 * 60 * 60 * 1000;
     var atMin = state.schedule.atMinutes;
-    var c = new Date(now); c.setHours(0,0,0,0);
-    c = new Date(c.getTime() + atMin * 60000);
+    var days = state.schedule.everyDays;
+    var c = boundaryAt(now, atMin);
 
     if (state.lastReturn) {
-      var anchor = new Date(state.lastReturn); anchor.setHours(0,0,0,0);
-      anchor = new Date(anchor.getTime() + atMin * 60000);
+      var anchor = boundaryAt(new Date(state.lastReturn), atMin);
       if (anchor.getTime() <= now.getTime()) {
-        var steps = Math.floor((now.getTime() - anchor.getTime()) / everyMs);
-        return new Date(anchor.getTime() + steps * everyMs);
+        while (stepDays(anchor, days).getTime() <= now.getTime()) {
+          anchor = stepDays(anchor, days);
+        }
+        return anchor;
       }
       return null;
     }
-    if (c.getTime() > now.getTime()) return new Date(c.getTime() - everyMs);
+    if (c.getTime() > now.getTime()) return stepDays(c, -days);
     return c;
   }
 
   function nextBoundaryAfter(now) {
-    var everyMs = state.schedule.everyDays * 24 * 60 * 60 * 1000;
+    var days = state.schedule.everyDays;
     var last = lastBoundaryBefore(now);
-    var base = last ? last.getTime() : (function () {
-      var c = new Date(now); c.setHours(0,0,0,0);
-      return c.getTime() + state.schedule.atMinutes * 60000;
-    })();
-    var next = base;
-    while (next <= now.getTime()) next += everyMs;
-    return new Date(next);
+    var next = last || boundaryAt(now, state.schedule.atMinutes);
+    while (next.getTime() <= now.getTime()) {
+      next = stepDays(next, days);
+    }
+    return next;
   }
 
   function applyAutoReturn() {

@@ -1,4 +1,4 @@
-var CACHE_NAME = "lists-2026-06-28";
+var CACHE_NAME = "lists";
 var ASSETS = [
   "./",
   "./index.html",
@@ -31,8 +31,13 @@ self.addEventListener("activate", function (e) {
 
 self.addEventListener("fetch", function (e) {
   e.respondWith(
-    caches.match(e.request).then(function (cached) {
-      return cached || fetch(e.request);
+    fetch(e.request).then(function (response) {
+      return caches.open(CACHE_NAME).then(function (cache) {
+        cache.put(e.request, response.clone());
+        return response;
+      });
+    }).catch(function () {
+      return caches.match(e.request);
     })
   );
 });
