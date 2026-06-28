@@ -9,6 +9,8 @@
 
   var state = load();
   var selectToKeep = { active: false, selected: {} };
+  var expandedNote = null;
+  var editingNote = null;
 
   function freshState() {
     return {
@@ -38,7 +40,11 @@
     if (!Array.isArray(arr)) return [];
     return arr
       .filter(function (it) { return it && typeof it.text === "string"; })
-      .map(function (it) { return { id: it.id || uid(), text: it.text }; });
+      .map(function (it) {
+        var o = { id: it.id || uid(), text: it.text };
+        if (it.note) o.note = it.note;
+        return o;
+      });
   }
 
   function normalise(obj) {
@@ -52,12 +58,14 @@
           s.items.trash = obj.items.trash
             .filter(function (it) { return it && typeof it.text === "string"; })
             .map(function (it) {
-              return {
+              var o = {
                 id: it.id || uid(),
                 text: it.text,
                 origin: CHAIN.indexOf(it.origin) !== -1 || it.origin === "completed" ? it.origin : "3",
                 deletedAt: typeof it.deletedAt === "string" ? it.deletedAt : new Date().toISOString()
               };
+              if (it.note) o.note = it.note;
+              return o;
             });
         }
       }
@@ -193,10 +201,12 @@
     var i = findIn(fromKey, id);
     if (i === -1) return;
     var moved = state.items[fromKey].splice(i, 1)[0];
-    state.items.trash.push({
+    var trashed = {
       id: moved.id, text: moved.text,
       origin: fromKey, deletedAt: new Date().toISOString()
-    });
+    };
+    if (moved.note) trashed.note = moved.note;
+    state.items.trash.push(trashed);
     save(); render();
   }
 
@@ -205,7 +215,9 @@
     if (i === -1) return;
     var t = state.items.trash.splice(i, 1)[0];
     var dest = (state.items[t.origin]) ? t.origin : "3";
-    state.items[dest].push({ id: t.id, text: t.text });
+    var recovered = { id: t.id, text: t.text };
+    if (t.note) recovered.note = t.note;
+    state.items[dest].push(recovered);
     save(); render();
   }
 
@@ -223,6 +235,26 @@
     if (v === "") return;            // empty = cancel, keep original
     state.items[listKey][i].text = v;
     save(); render();
+  }
+
+  function editNote(listKey, id, newNote) {
+    var i = findIn(listKey, id);
+    if (i === -1) return;
+    var v = newNote.trim();
+    if (v) {
+      state.items[listKey][i].note = v;
+      expandedNote = id;
+    } else {
+      delete state.items[listKey][i].note;
+      expandedNote = null;
+    }
+    save(); render();
+  }
+
+  function startNoteEdit(key, item) {
+    editingNote = { key: key, id: item.id };
+    expandedNote = item.id;
+    render();
   }
 
   // ---------- rendering ----------
@@ -438,7 +470,7 @@
     return ul;
   }
 
-  // main-chain row: [check] [label] [pencil] [up] [down] [trash]
+  // main-chain row: [check] [label] [pencil] [hamburger]
   function buildMainRow(key, item) {
     var li = document.createElement("li");
     li.className = "item";
@@ -450,24 +482,14 @@
     var actions = document.createElement("div");
     actions.className = "row-actions";
     actions.appendChild(buildPencil(key, item, li));
-
-    var up = mkMini("↑", "Move up a list");
-    up.disabled = key === "0";
-    up.addEventListener("click", function () { moveChain(key, item.id, -1); });
-    var down = mkMini("↓", "Move down a list");
-    down.disabled = key === "4";
-    down.addEventListener("click", function () { moveChain(key, item.id, 1); });
-    actions.appendChild(up);
-    actions.appendChild(down);
-
-    actions.appendChild(buildTrashBtn(function () { trashItem(key, item.id); }, item));
+    actions.appendChild(buildHamburger(key, item));
     li.appendChild(actions);
 
     attachSwipe(li, key, item.id);
     return li;
   }
 
-  // completed row: [ticked check] [grey label] [pencil] [trash]  (no arrows)
+  // completed row: [ticked check] [grey label] [pencil] [hamburger]
   function buildCompletedRow(item) {
     var li = document.createElement("li");
     li.className = "item done";
@@ -479,10 +501,10 @@
     var actions = document.createElement("div");
     actions.className = "row-actions";
     actions.appendChild(buildPencil("completed", item, li));
-    actions.appendChild(buildTrashBtn(function () { trashItem("completed", item.id); }, item));
+    actions.appendChild(buildHamburger("completed", item));
     li.appendChild(actions);
 
-    attachSwipeUpOnly(li, item.id);   // up-swipe revives to list 2
+    attachSwipeUpOnly(li, item.id);
     return li;
   }
 
@@ -533,10 +555,62 @@
   }
 
   function buildLabel(item) {
+    var wrap = document.createElement("div");
+    wrap.className = "label-wrap";
+
     var label = document.createElement("span");
     label.className = "label";
     label.textContent = item.text;
-    return label;
+    if (item.note) {
+      var marker = document.createElement("span");
+      marker.className = "note-marker";
+      marker.textContent = "*";
+      label.appendChild(marker);
+    }
+    wrap.appendChild(label);
+
+    if (editingNote && editingNote.id === item.id) {
+      var ta = document.createElement("textarea");
+      ta.className = "item-note-edit";
+      ta.value = item.note || "";
+      ta.placeholder = "Add a note…";
+      ta.rows = 1;
+      wrap.appendChild(ta);
+      function autoSize() { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; }
+      ta.addEventListener("input", autoSize);
+      setTimeout(function () {
+        autoSize();
+        ta.focus();
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+      }, 0);
+      var committed = false;
+      function commit() {
+        if (committed) return;
+        committed = true;
+        var eKey = editingNote.key;
+        editingNote = null;
+        editNote(eKey, item.id, ta.value);
+      }
+      ta.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commit(); }
+        else if (e.key === "Escape") { committed = true; editingNote = null; render(); }
+      });
+      ta.addEventListener("blur", commit);
+    } else if (item.note && expandedNote === item.id) {
+      var noteEl = document.createElement("div");
+      noteEl.className = "item-note";
+      noteEl.textContent = item.note;
+      wrap.appendChild(noteEl);
+    }
+
+    wrap.addEventListener("click", function (e) {
+      if (e.target.closest("button") || e.target.closest(".label-edit") || e.target.closest(".item-note-edit")) return;
+      if (!item.note) return;
+      expandedNote = expandedNote === item.id ? null : item.id;
+      render();
+    });
+
+    return wrap;
   }
 
   function buildPencil(key, item, li) {
@@ -550,6 +624,66 @@
     btn.classList.add("trash");
     btn.addEventListener("click", onClick);
     return btn;
+  }
+
+  function closeAllMenus() {
+    var open = document.querySelectorAll(".item-menu");
+    open.forEach(function (m) { m.remove(); });
+  }
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest(".menu-anchor")) closeAllMenus();
+    if (expandedNote && !editingNote && !e.target.closest(".item[data-id=\"" + expandedNote + "\"]")) {
+      expandedNote = null;
+      render();
+    }
+  });
+
+  function buildHamburger(key, item) {
+    var wrap = document.createElement("div");
+    wrap.className = "menu-anchor";
+    var btn = mkMini("☰", "More options");
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var existing = wrap.querySelector(".item-menu");
+      if (existing) { existing.remove(); return; }
+      closeAllMenus();
+      var menu = document.createElement("div");
+      menu.className = "item-menu";
+
+      var isChain = CHAIN.indexOf(key) !== -1;
+
+      if (isChain) {
+        var up = document.createElement("button");
+        up.textContent = "Move up";
+        if (key === "0") up.style.display = "none";
+        up.addEventListener("click", function () { moveChain(key, item.id, -1); });
+        menu.appendChild(up);
+
+        var down = document.createElement("button");
+        down.textContent = "Move down";
+        if (key === "4") down.style.display = "none";
+        down.addEventListener("click", function () { moveChain(key, item.id, 1); });
+        menu.appendChild(down);
+      }
+
+      var note = document.createElement("button");
+      note.textContent = "Edit note";
+      note.addEventListener("click", function () {
+        closeAllMenus();
+        startNoteEdit(key, item);
+      });
+      menu.appendChild(note);
+
+      var del = document.createElement("button");
+      del.className = "danger";
+      del.textContent = "Delete";
+      del.addEventListener("click", function () { trashItem(key, item.id); });
+      menu.appendChild(del);
+
+      wrap.appendChild(menu);
+    });
+    wrap.appendChild(btn);
+    return wrap;
   }
 
   function mkMini(glyph, label) {
