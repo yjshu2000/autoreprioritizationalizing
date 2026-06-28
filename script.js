@@ -470,13 +470,25 @@
     return ul;
   }
 
-  // main-chain row: [check] [label] [pencil] [hamburger]
+  function isBuyItem(item) {
+    return /^buy\b/i.test(item.text);
+  }
+
+  function buildBuyTag() {
+    var tag = document.createElement("span");
+    tag.className = "buy-tag";
+    tag.textContent = "🛒";
+    return tag;
+  }
+
+  // main-chain row: [check] [cart?] [label] [pencil] [hamburger]
   function buildMainRow(key, item) {
     var li = document.createElement("li");
     li.className = "item";
     li.dataset.id = item.id;
 
     li.appendChild(buildCheck(false, function () { completeItem(key, item.id); }));
+    if (isBuyItem(item)) li.appendChild(buildBuyTag());
     li.appendChild(buildLabel(item));
 
     var actions = document.createElement("div");
@@ -496,6 +508,7 @@
     li.dataset.id = item.id;
 
     li.appendChild(buildCheck(true, function () { uncompleteItem(item.id); }));
+    if (isBuyItem(item)) li.appendChild(buildBuyTag());
     li.appendChild(buildLabel(item));
 
     var actions = document.createElement("div");
