@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Lists</title>
+<link rel="stylesheet" href="lists.css">
+</head>
+<body>
+  <header class="app">
+    <h1>Lists</h1>
+  </header>
+
+  <input type="file" id="fileInput" accept="application/json,.json" hidden>
+
+  <main id="app"></main>
+
+  <section class="panel">
+    <h2>List 2 &rarr; List 1 return</h2>
+    <div class="sched-row">
+      <label for="every">Every</label>
+      <input type="number" id="every" min="1" step="1" value="1">
+      <span>day(s) at</span>
+      <input type="number" id="atHour" min="0" max="23" step="1" value="0" aria-label="Hour (0-23)">
+      <span class="colon">:</span>
+      <input type="number" id="atMin" min="0" max="59" step="1" value="00" aria-label="Minute (0-59)">
+      <span class="hint">24h</span>
+    </div>
+    <div class="next-note" id="nextNote"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Backup</h2>
+    <div class="io-row">
+      <button id="exportBtn2">Export JSON</button>
+      <button id="importBtn2">Import JSON</button>
+    </div>
+  </section>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="lists.js"></script>
+</body>
+</html>

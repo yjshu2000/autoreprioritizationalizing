@@ -1,223 +1,3 @@
-<!DOCTYPE html>
-<html lang="en-CA">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Lists</title>
-<style>
-  :root {
-    --bg: #e7e6e3;
-    --surface: #f0efec;
-    --surface-2: #e2e1dd;
-    --line: #cfcdc8;
-    --divider: #d6d4cf;
-    --ink: #1c1b19;
-    --ink-soft: #45433f;
-    --ink-grey: #8f8d88;      /* completed / trashed items */
-    --accent: #4a6f8a;
-    --accent-ink: #ffffff;
-    --danger: #8a4a4a;
-    --radius: 14px;
-    --gap: 10px;
-    --tap: 44px;
-    font-size: 16px;
-  }
-
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
-  html, body {
-    margin: 0; padding: 0;
-    background: var(--bg);
-    color: var(--ink);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
-  body { max-width: 640px; margin: 0 auto; padding: 14px 12px 64px; }
-
-  header.app {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 8px; margin-bottom: 14px;
-  }
-  header.app h1 {
-    font-size: 1.05rem; font-weight: 700; letter-spacing: 0.02em; margin: 0; color: var(--ink);
-  }
-  header.app .tools { display: flex; gap: 6px; }
-
-  button {
-    font: inherit; color: var(--ink); background: var(--surface);
-    border: 1px solid var(--line); border-radius: 10px;
-    min-height: var(--tap); padding: 0 12px; cursor: pointer;
-  }
-  button:active { transform: scale(0.98); }
-  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
-  button.icon { min-width: var(--tap); padding: 0; font-size: 1.1rem; line-height: 1; }
-  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-
-  .card {
-    background: var(--surface); border: 1px solid var(--line);
-    border-radius: var(--radius); margin-bottom: var(--gap); overflow: hidden;
-  }
-
-  .list-head {
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 12px; background: var(--surface-2);
-    border-bottom: 1px solid var(--line); min-height: var(--tap);
-  }
-  .list.collapsed .list-head { border-bottom: none; }
-  /* sub-list head inside the shared Today card */
-  .sub .list-head { background: var(--surface); }
-
-  .list-head .title {
-    font-weight: 700; font-size: 0.98rem; color: var(--ink);
-    flex: 1; display: flex; align-items: baseline; gap: 8px;
-  }
-  .list-head .count {
-    font-size: 0.78rem; color: var(--ink-soft); font-variant-numeric: tabular-nums;
-    background: var(--bg); border: 1px solid var(--line); border-radius: 999px;
-    min-width: 22px; padding: 1px 7px; text-align: center; flex-shrink: 0;
-  }
-  .chev {
-    border: none; background: transparent; min-width: 32px; min-height: 32px;
-    font-size: 0.95rem; color: var(--ink); transition: transform 0.15s ease;
-  }
-  .list.collapsed .chev { transform: rotate(-90deg); }
-  .list.fixed .chev { visibility: hidden; }
-
-  /* shared Today card: a thin light divider between list 0 and list 1 */
-  .today-card .divider { height: 1px; background: var(--divider); margin: 0 12px; }
-
-  .items {
-    list-style: none; margin: 0; padding: 6px;
-    display: flex; flex-direction: column; gap: 6px;
-  }
-  .list.collapsed .items, .list.collapsed .adder { display: none; }
-
-  .empty { padding: 12px 10px; color: var(--ink-soft); font-size: 0.88rem; }
-
-  .item {
-    display: flex; align-items: center; gap: 4px;
-    background: #faf9f7; border: 1px solid var(--line); border-radius: 10px;
-    padding: 6px 6px 6px 8px; touch-action: pan-y; position: relative; overflow: hidden;
-  }
-  .item .check {
-    flex-shrink: 0; min-width: 34px; min-height: 34px;
-    display: flex; align-items: center; justify-content: center;
-    border: none; background: transparent; font-size: 1.15rem; color: var(--accent);
-  }
-  .item .check .box {
-    width: 20px; height: 20px; border: 2px solid var(--ink-soft);
-    border-radius: 5px; display: inline-block; position: relative;
-  }
-  .item.done .check .box { background: var(--accent); border-color: var(--accent); }
-  .item.done .check .box::after {
-    content: "✓"; position: absolute; inset: 0;
-    color: #fff; font-size: 0.85rem; line-height: 16px; text-align: center;
-  }
-  .item .label {
-    flex: 1; font-size: 0.98rem; color: var(--ink);
-    word-break: break-word; line-height: 1.3;
-  }
-  .item.done .label { color: var(--ink-grey); }
-
-  .item .label-edit {
-    flex: 1; font: inherit; font-size: 0.98rem; color: var(--ink);
-    background: #fff; border: 1px solid var(--accent); border-radius: 8px;
-    min-height: 34px; padding: 0 8px;
-  }
-
-  .row-actions { display: flex; gap: 4px; flex-shrink: 0; align-items: center; }
-  .mini {
-    min-width: 34px; min-height: 34px; padding: 0; font-size: 0.95rem;
-    background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
-  }
-  .mini.trash { color: var(--danger); }
-  .mini:disabled { display: none; }
-
-  .adder { display: flex; gap: 6px; padding: 0 6px 8px; }
-  .adder input {
-    flex: 1; font: inherit; color: var(--ink); background: #faf9f7;
-    border: 1px solid var(--line); border-radius: 10px; min-height: var(--tap); padding: 0 12px;
-  }
-  .adder input::placeholder { color: var(--ink-soft); }
-
-  /* trash rows */
-  .trash-item .label { color: var(--ink-grey); }
-  .trash-item .ttl { font-size: 0.74rem; color: var(--ink-soft); margin-left: 6px; white-space: nowrap; }
-  .recover-btn { min-height: 34px; padding: 0 10px; font-size: 0.85rem; }
-
-  .panel {
-    background: var(--surface); border: 1px solid var(--line);
-    border-radius: var(--radius); padding: 12px; margin-bottom: var(--gap);
-  }
-  .panel h2 {
-    font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em;
-    color: var(--ink-soft); margin: 0 0 10px;
-  }
-  .sched-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.92rem; }
-  .sched-row label { color: var(--ink); }
-  .sched-row input[type="number"] {
-    width: 64px; font: inherit; color: var(--ink); background: #faf9f7;
-    border: 1px solid var(--line); border-radius: 8px; min-height: 38px; padding: 0 8px; text-align: center;
-  }
-  .sched-row #atHour, .sched-row #atMin { width: 56px; }
-  .sched-row .colon { font-weight: 700; }
-  .sched-row .hint { font-size: 0.74rem; color: var(--ink-soft); }
-  .sched-row input[type="time"] {
-    font: inherit; color: var(--ink); background: #faf9f7;
-    border: 1px solid var(--line); border-radius: 8px; min-height: 38px; padding: 0 8px;
-  }
-  .next-note { margin-top: 8px; font-size: 0.82rem; color: var(--ink-soft); }
-  .io-row { display: flex; gap: 8px; }
-  .io-row button { flex: 1; }
-
-  .toast {
-    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
-    background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 10px;
-    font-size: 0.9rem; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
-    z-index: 50; max-width: 90%;
-  }
-  .toast.show { opacity: 1; }
-
-  @media (prefers-reduced-motion: reduce) {
-    *, .chev { transition: none !important; }
-    button:active { transform: none; }
-  }
-</style>
-</head>
-<body>
-  <header class="app">
-    <h1>Lists</h1>
-  </header>
-
-  <input type="file" id="fileInput" accept="application/json,.json" hidden>
-
-  <main id="app"></main>
-
-  <section class="panel">
-    <h2>List 2 &rarr; List 1 return</h2>
-    <div class="sched-row">
-      <label for="every">Every</label>
-      <input type="number" id="every" min="1" step="1" value="1">
-      <span>day(s) at</span>
-      <input type="number" id="atHour" min="0" max="23" step="1" value="0" aria-label="Hour (0-23)">
-      <span class="colon">:</span>
-      <input type="number" id="atMin" min="0" max="59" step="1" value="00" aria-label="Minute (0-59)">
-      <span class="hint">24h</span>
-    </div>
-    <div class="next-note" id="nextNote"></div>
-  </section>
-
-  <section class="panel">
-    <h2>Backup</h2>
-    <div class="io-row">
-      <button id="exportBtn2">Export JSON</button>
-      <button id="importBtn2">Import JSON</button>
-    </div>
-  </section>
-
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
-
-<script>
 (function () {
   "use strict";
 
@@ -507,7 +287,7 @@
 
     var chev = document.createElement("button");
     chev.className = "chev";
-    chev.textContent = "\u25be";
+    chev.textContent = "▾";
     if (opts.collapsible) {
       chev.setAttribute("aria-label", (state.collapsed[key] ? "Expand " : "Collapse ") + titleText);
       chev.addEventListener("click", function () {
@@ -575,10 +355,10 @@
     actions.className = "row-actions";
     actions.appendChild(buildPencil(key, item, li));
 
-    var up = mkMini("\u2191", "Move up a list");
+    var up = mkMini("↑", "Move up a list");
     up.disabled = key === "0";
     up.addEventListener("click", function () { moveChain(key, item.id, -1); });
-    var down = mkMini("\u2193", "Move down a list");
+    var down = mkMini("↓", "Move down a list");
     down.disabled = key === "4";
     down.addEventListener("click", function () { moveChain(key, item.id, 1); });
     actions.appendChild(up);
@@ -635,7 +415,7 @@
     rec.addEventListener("click", function () { recoverItem(item.id); });
     actions.appendChild(rec);
 
-    var perm = mkMini("\u2715", "Delete permanently");
+    var perm = mkMini("✕", "Delete permanently");
     perm.classList.add("trash");
     perm.addEventListener("click", function () { permaDelete(item.id); });
     actions.appendChild(perm);
@@ -664,13 +444,13 @@
   }
 
   function buildPencil(key, item, li) {
-    var btn = mkMini("\u270e", "Edit");
+    var btn = mkMini("✎", "Edit");
     btn.addEventListener("click", function () { startEdit(li, key, item); });
     return btn;
   }
 
   function buildTrashBtn(onClick, item) {
-    var btn = mkMini("\uD83D\uDDD1", "Delete");
+    var btn = mkMini("🗑", "Delete");
     btn.classList.add("trash");
     btn.addEventListener("click", onClick);
     return btn;
@@ -714,7 +494,7 @@
     adder.className = "adder";
     var input = document.createElement("input");
     input.type = "text";
-    input.placeholder = "Add\u2026";
+    input.placeholder = "Add…";
     input.setAttribute("aria-label", "Add an item");
     var addBtn = document.createElement("button");
     addBtn.className = "primary";
@@ -871,6 +651,3 @@
     }
   });
 })();
-</script>
-</body>
-</html>
