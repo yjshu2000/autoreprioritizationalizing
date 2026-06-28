@@ -246,6 +246,10 @@ button.primary { background: var(--accent); color: var(--accent-ink); border-col
   color: #fff; font-size: 0.85rem; line-height: 16px; text-align: center;
 }
 
+/* randomizer mode */
+.item.rnd-item { padding: 10px; }
+.item.rnd-highlight { background: #fde68a; border-color: #f59e0b; }
+
 @media (prefers-reduced-motion: reduce) {
   *, .chev { transition: none !important; }
   button:active { transform: none; }

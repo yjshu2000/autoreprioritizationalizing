@@ -11,6 +11,8 @@
   var selectToKeep = { active: false, selected: {} };
   var expandedNote = null;
   var editingNote = null;
+  var randomizer = { active: false, target: null, winnerId: null, highlightId: null, done: false };
+  var randomizerGen = 0;
 
   function freshState() {
     return {
@@ -267,7 +269,7 @@
     // thin divider. Above the divider = backend "0", below = backend "1".
     var today = document.createElement("section");
     today.className = "card today-card list fixed";
-    today.appendChild(buildHead("today", "List 1", { fixed: true, countKeys: ["0", "1"], selectToKeep: true }));
+    today.appendChild(buildHead("today", "List 1", { fixed: true, countKeys: ["0", "1"], selectToKeep: true, randomizerTarget: "today" }));
 
     var zoneTop = document.createElement("ul");
     zoneTop.className = "items";
@@ -283,11 +285,11 @@
     fillZone(zoneBot, "1");
     today.appendChild(zoneBot);
 
-    if (!selectToKeep.active) today.appendChild(buildAdder("1"));
+    if (!selectToKeep.active && !(randomizer.active && randomizer.target === "today")) today.appendChild(buildAdder("1"));
     appEl.appendChild(today);
 
     // List 2 (own card, fixed)
-    appEl.appendChild(renderCard("2", "List 2", { fixed: true }));
+    appEl.appendChild(renderCard("2", "List 2", { fixed: true, randomizerTarget: "2" }));
 
     // Completed purgatory (collapsible)
     appEl.appendChild(renderCard("completed", "Completed", { collapsible: true, kind: "completed" }));
@@ -313,7 +315,8 @@
       return;
     }
     arr.forEach(function (item) {
-      ul.appendChild(selectToKeep.active ? buildSelectRow(item) : buildMainRow(key, item));
+      if (randomizer.active && randomizer.target === "today") ul.appendChild(buildRandomizerRow(item));
+      else ul.appendChild(selectToKeep.active ? buildSelectRow(item) : buildMainRow(key, item));
     });
   }
 
@@ -343,6 +346,18 @@
     return li;
   }
 
+  function buildRandomizerRow(item) {
+    var li = document.createElement("li");
+    li.className = "item rnd-item";
+    li.dataset.id = item.id;
+    if (isBuyItem(item)) li.appendChild(buildBuyTag());
+    var label = document.createElement("span");
+    label.className = "label";
+    label.textContent = item.text;
+    li.appendChild(label);
+    return li;
+  }
+
   function renderCard(key, titleText, opts) {
     opts = opts || {};
     var collapsed = opts.collapsible && state.collapsed[key];
@@ -350,7 +365,7 @@
     card.className = "card list" + (opts.fixed ? " fixed" : "") + (collapsed ? " collapsed" : "");
     card.appendChild(buildHead(key, titleText, opts));
     card.appendChild(buildItems(key, opts));
-    if (opts.kind !== "trash") card.appendChild(buildAdder(key));
+    if (opts.kind !== "trash" && !(randomizer.active && randomizer.target === opts.randomizerTarget)) card.appendChild(buildAdder(key));
     return card;
   }
 
@@ -383,21 +398,23 @@
     }
     head.appendChild(title);
 
-    if (opts.selectToKeep) {
+    if (opts.selectToKeep || opts.randomizerTarget) {
       var headerActions = document.createElement("div");
       headerActions.className = "head-actions";
 
-      if (!selectToKeep.active) {
-        var enterBtn = document.createElement("button");
-        enterBtn.className = "head-btn";
-        enterBtn.textContent = "Select to keep";
-        enterBtn.addEventListener("click", function () {
-          selectToKeep.active = true;
-          selectToKeep.selected = {};
+      var isThisRandomizer = randomizer.active && randomizer.target === opts.randomizerTarget;
+
+      if (isThisRandomizer) {
+        var doneBtn = document.createElement("button");
+        doneBtn.className = "head-btn";
+        doneBtn.textContent = "Done";
+        doneBtn.addEventListener("click", function () {
+          randomizerGen++;
+          randomizer = { active: false, target: null, winnerId: null, highlightId: null, done: false };
           render();
         });
-        headerActions.appendChild(enterBtn);
-      } else {
+        headerActions.appendChild(doneBtn);
+      } else if (selectToKeep.active) {
         var selCount = Object.keys(selectToKeep.selected).length;
 
         var moveBtn = document.createElement("button");
@@ -431,6 +448,35 @@
           render();
         });
         headerActions.appendChild(cancelBtn);
+      } else {
+        if (opts.randomizerTarget) {
+          var randBtn = document.createElement("button");
+          randBtn.className = "head-btn";
+          randBtn.textContent = "Randomizer!";
+          randBtn.addEventListener("click", function () {
+            var keys = opts.randomizerTarget === "today" ? ["0", "1"] : [opts.randomizerTarget];
+            var allItems = [];
+            keys.forEach(function (k) {
+              state.items[k].forEach(function (item) { allItems.push(item); });
+            });
+            if (allItems.length === 0) { toast("No items to randomize!"); return; }
+            randomizer = { active: true, target: opts.randomizerTarget, winnerId: null, highlightId: null, done: false };
+            render();
+            setTimeout(function () { runRandomizerAnimation(); }, 100);
+          });
+          headerActions.appendChild(randBtn);
+        }
+        if (opts.selectToKeep) {
+          var enterBtn = document.createElement("button");
+          enterBtn.className = "head-btn";
+          enterBtn.textContent = "Select to keep";
+          enterBtn.addEventListener("click", function () {
+            selectToKeep.active = true;
+            selectToKeep.selected = {};
+            render();
+          });
+          headerActions.appendChild(enterBtn);
+        }
       }
       head.appendChild(headerActions);
     }
@@ -463,7 +509,8 @@
     }
 
     arr.forEach(function (item) {
-      if (opts.kind === "trash") ul.appendChild(buildTrashRow(item));
+      if (randomizer.active && randomizer.target === opts.randomizerTarget) ul.appendChild(buildRandomizerRow(item));
+      else if (opts.kind === "trash") ul.appendChild(buildTrashRow(item));
       else if (opts.kind === "completed") ul.appendChild(buildCompletedRow(item));
       else ul.appendChild(buildMainRow(key, item));
     });
@@ -754,6 +801,72 @@
     adder.appendChild(input);
     adder.appendChild(addBtn);
     return adder;
+  }
+
+  // ---------- randomizer animation ----------
+  function runRandomizerAnimation() {
+    var gen = ++randomizerGen;
+    var keys = randomizer.target === "today" ? ["0", "1"] : [randomizer.target];
+    var allItems = [];
+    keys.forEach(function (k) {
+      state.items[k].forEach(function (item) { allItems.push(item); });
+    });
+    if (allItems.length === 0) return;
+    if (allItems.length === 1) {
+      randomizer.winnerId = allItems[0].id;
+      randomizer.highlightId = allItems[0].id;
+      randomizer.done = true;
+      blinkWinner(gen);
+      return;
+    }
+
+    var winnerIdx = Math.floor(Math.random() * allItems.length);
+    randomizer.winnerId = allItems[winnerIdx].id;
+
+    var cycles = 1 + Math.floor(Math.random() * 3);
+    var totalTicks = allItems.length * cycles + winnerIdx;
+    var currentTick = 0;
+
+    function tick() {
+      if (gen !== randomizerGen) return;
+      var itemIdx = currentTick % allItems.length;
+      randomizer.highlightId = allItems[itemIdx].id;
+
+      var items = document.querySelectorAll(".rnd-item");
+      items.forEach(function (el) {
+        el.classList.toggle("rnd-highlight", el.dataset.id === randomizer.highlightId);
+      });
+
+      var highlighted = document.querySelector(".rnd-item.rnd-highlight");
+      if (highlighted) highlighted.scrollIntoView({ block: "nearest", behavior: "smooth" });
+
+      currentTick++;
+      if (currentTick <= totalTicks) {
+        var progress = currentTick / totalTicks;
+        var delay = 50 + 400 * Math.pow(progress, 3);
+        setTimeout(tick, delay);
+      } else {
+        randomizer.done = true;
+        blinkWinner(gen);
+      }
+    }
+
+    tick();
+  }
+
+  function blinkWinner(gen) {
+    var el = document.querySelector('.rnd-item[data-id="' + randomizer.winnerId + '"]');
+    if (!el) return;
+    var blinks = 0;
+    function blink() {
+      if (gen !== randomizerGen) return;
+      if (blinks >= 4) { el.classList.add("rnd-highlight"); return; }
+      el.classList.toggle("rnd-highlight");
+      blinks++;
+      setTimeout(blink, 250);
+    }
+    el.classList.remove("rnd-highlight");
+    setTimeout(function () { if (gen === randomizerGen) blink(); }, 200);
   }
 
   // ---------- swipe ----------
