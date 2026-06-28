@@ -299,7 +299,7 @@
     appEl.appendChild(renderCard("4", "List 4", { collapsible: true }));
 
     // Trash (collapsible, no count)
-    appEl.appendChild(renderCard("trash", "Trash", { collapsible: true, kind: "trash", noCount: true }));
+    appEl.appendChild(renderCard("trash", "Trash", { collapsible: true, kind: "trash" }));
 
     updateNextNote();
   }
@@ -574,16 +574,19 @@
     li.className = "item trash-item";
     li.dataset.id = item.id;
 
+    var wrap = document.createElement("div");
+    wrap.className = "label-wrap";
     var label = document.createElement("span");
     label.className = "label";
     label.textContent = item.text;
+    wrap.appendChild(label);
 
     var days = Math.max(0, Math.ceil((WEEK_MS - (Date.now() - new Date(item.deletedAt).getTime())) / (24*60*60*1000)));
-    var ttl = document.createElement("span");
+    var ttl = document.createElement("div");
     ttl.className = "ttl";
     ttl.textContent = "deletes in " + days + (days === 1 ? " day" : " days");
-    label.appendChild(ttl);
-    li.appendChild(label);
+    wrap.appendChild(ttl);
+    li.appendChild(wrap);
 
     var actions = document.createElement("div");
     actions.className = "row-actions";
