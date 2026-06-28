@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Lists</title>
 <link rel="stylesheet" href="styles.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4a6f8a">
 </head>
 <body>
   <header class="app">
@@ -31,14 +33,27 @@
 
   <section class="panel">
     <h2>Backup</h2>
-    <div class="io-row">
-      <button id="exportBtn2">Export JSON</button>
-      <button id="importBtn2">Import JSON</button>
+    <div class="io-rows">
+      <div class="io-row">
+        <button id="exportCopyBtn">Export - Copy</button>
+        <button id="importPasteBtn">Import - Paste</button>
+      </div>
+      <div class="io-row">
+        <button id="exportFileBtn">Export - File</button>
+        <button id="exportShareBtn">Export - Share</button>
+        <button id="importFileBtn">Import - File</button>
+      </div>
     </div>
+    <div class="last-exported" id="lastExported"></div>
   </section>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="script.js"></script>
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js");
+}
+</script>
 </body>
 </html>

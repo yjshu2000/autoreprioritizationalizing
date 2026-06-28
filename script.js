@@ -8,6 +8,7 @@
   var CHAIN = ["0", "1", "2", "3", "4"];
 
   var state = load();
+  var selectToKeep = { active: false, selected: {} };
 
   function freshState() {
     return {
@@ -15,7 +16,9 @@
       items: { "0": [], "1": [], "2": [], "3": [], "4": [], completed: [], trash: [] },
       collapsed: { "3": false, "4": true, completed: true, trash: true },
       schedule: { everyDays: 1, atMinutes: 0 },
-      lastReturn: null
+      lastReturn: null,
+      lastExported: null,
+      lastExportedConfirmed: null
     };
   }
 
@@ -71,6 +74,8 @@
         if (am >= 0 && am < 1440) s.schedule.atMinutes = am;
       }
       if (typeof obj.lastReturn === "string") s.lastReturn = obj.lastReturn;
+      if (typeof obj.lastExported === "string") s.lastExported = obj.lastExported;
+      if (typeof obj.lastExportedConfirmed === "string") s.lastExportedConfirmed = obj.lastExportedConfirmed;
     }
     return s;
   }
@@ -220,7 +225,7 @@
     // thin divider. Above the divider = backend "0", below = backend "1".
     var today = document.createElement("section");
     today.className = "card today-card list fixed";
-    today.appendChild(buildHead("today", "List 1", { fixed: true, countKeys: ["0", "1"] }));
+    today.appendChild(buildHead("today", "List 1", { fixed: true, countKeys: ["0", "1"], selectToKeep: true }));
 
     var zoneTop = document.createElement("ul");
     zoneTop.className = "items";
@@ -236,8 +241,7 @@
     fillZone(zoneBot, "1");
     today.appendChild(zoneBot);
 
-    // single adder; new items land in the lower (hopefully) zone = backend "1"
-    today.appendChild(buildAdder("1"));
+    if (!selectToKeep.active) today.appendChild(buildAdder("1"));
     appEl.appendChild(today);
 
     // List 2 (own card, fixed)
@@ -266,7 +270,35 @@
       ul.appendChild(empty);
       return;
     }
-    arr.forEach(function (item) { ul.appendChild(buildMainRow(key, item)); });
+    arr.forEach(function (item) {
+      ul.appendChild(selectToKeep.active ? buildSelectRow(item) : buildMainRow(key, item));
+    });
+  }
+
+  function buildSelectRow(item) {
+    var li = document.createElement("li");
+    li.className = "item stk-mode" + (selectToKeep.selected[item.id] ? " stk-on" : "");
+    li.dataset.id = item.id;
+
+    var label = document.createElement("span");
+    label.className = "label";
+    label.textContent = item.text;
+    li.appendChild(label);
+
+    var box = document.createElement("span");
+    box.className = "stk-box";
+    li.appendChild(box);
+
+    li.addEventListener("click", function () {
+      if (selectToKeep.selected[item.id]) {
+        delete selectToKeep.selected[item.id];
+      } else {
+        selectToKeep.selected[item.id] = true;
+      }
+      render();
+    });
+
+    return li;
   }
 
   function renderCard(key, titleText, opts) {
@@ -308,6 +340,59 @@
       });
     }
     head.appendChild(title);
+
+    if (opts.selectToKeep) {
+      var headerActions = document.createElement("div");
+      headerActions.className = "head-actions";
+
+      if (!selectToKeep.active) {
+        var enterBtn = document.createElement("button");
+        enterBtn.className = "head-btn";
+        enterBtn.textContent = "Select to keep";
+        enterBtn.addEventListener("click", function () {
+          selectToKeep.active = true;
+          selectToKeep.selected = {};
+          render();
+        });
+        headerActions.appendChild(enterBtn);
+      } else {
+        var selCount = Object.keys(selectToKeep.selected).length;
+
+        var moveBtn = document.createElement("button");
+        moveBtn.className = "head-btn primary";
+        moveBtn.textContent = "Move unselected ↓";
+        moveBtn.disabled = selCount === 0;
+        moveBtn.addEventListener("click", function () {
+          ["0", "1"].forEach(function (k) {
+            var keep = [];
+            state.items[k].forEach(function (item) {
+              if (selectToKeep.selected[item.id]) {
+                keep.push(item);
+              } else {
+                state.items["2"].push(item);
+              }
+            });
+            state.items[k] = keep;
+          });
+          selectToKeep.active = false;
+          selectToKeep.selected = {};
+          save(); render();
+        });
+        headerActions.appendChild(moveBtn);
+
+        var cancelBtn = document.createElement("button");
+        cancelBtn.className = "head-btn";
+        cancelBtn.textContent = "Cancel";
+        cancelBtn.addEventListener("click", function () {
+          selectToKeep.active = false;
+          selectToKeep.selected = {};
+          render();
+        });
+        headerActions.appendChild(cancelBtn);
+      }
+      head.appendChild(headerActions);
+    }
+
     if (!opts.noCount) {
       var count = document.createElement("span");
       count.className = "count";
@@ -317,6 +402,7 @@
       count.textContent = n;
       head.appendChild(count);
     }
+
     return head;
   }
 
@@ -598,34 +684,155 @@
   }
 
   // ---------- export / import ----------
-  function doExport() {
-    var blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  function exportJSON() { return JSON.stringify(state, null, 2); }
+  function markExported() {
+    state.lastExported = new Date().toISOString();
+    save(); updateLastExported();
+  }
+  function importFromText(text) {
+    if (!window.confirm("Import will replace everything currently in these lists. Continue?")) return;
+    try {
+      state = normalise(JSON.parse(text));
+      save(); syncScheduleInputs(); render();
+      toast("Imported.");
+      return true;
+    } catch (e) { toast("That text could not be read as valid JSON."); return false; }
+  }
+
+  // modal helpers
+  function showModal(content) {
+    var overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    var box = document.createElement("div");
+    box.className = "modal-box";
+    box.appendChild(content);
+    overlay.appendChild(box);
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) overlay.remove();
+    });
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+
+  // Export - Copy: show JSON in a readonly textarea for manual selection
+  document.getElementById("exportCopyBtn").addEventListener("click", function () {
+    var frag = document.createDocumentFragment();
+    var h = document.createElement("h3"); h.textContent = "Export — select and copy"; frag.appendChild(h);
+    var ta = document.createElement("textarea");
+    ta.className = "modal-ta"; ta.readOnly = true; ta.value = exportJSON();
+    frag.appendChild(ta);
+    var row = document.createElement("div"); row.className = "modal-actions";
+    var close = document.createElement("button"); close.textContent = "Done";
+    row.appendChild(close);
+    frag.appendChild(row);
+    var overlay = showModal(frag);
+    ta.focus(); ta.select();
+    markExported();
+    close.addEventListener("click", function () { overlay.remove(); });
+  });
+
+  // Export - File
+  document.getElementById("exportFileBtn").addEventListener("click", function () {
+    var blob = new Blob([exportJSON()], { type: "application/json" });
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
     a.href = url;
-    a.download = "lists-" + new Date().toISOString().slice(0,10) + ".json";
+    a.download = "lists-" + new Date().toISOString().slice(0, 10) + ".json";
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    markExported();
     toast("Exported.");
-  }
+  });
+
+  // Export - Share
+  document.getElementById("exportShareBtn").addEventListener("click", function () {
+    if (!navigator.share) { toast("Share not supported in this browser."); return; }
+    navigator.share({ title: "Lists backup", text: exportJSON() }).then(function () {
+      markExported();
+    }).catch(function () {});
+  });
+
+  // Import - Paste: show empty textarea for user to paste into
+  document.getElementById("importPasteBtn").addEventListener("click", function () {
+    var frag = document.createDocumentFragment();
+    var h = document.createElement("h3"); h.textContent = "Import — paste JSON"; frag.appendChild(h);
+    var ta = document.createElement("textarea");
+    ta.className = "modal-ta"; ta.placeholder = "Paste exported JSON here…";
+    frag.appendChild(ta);
+    var row = document.createElement("div"); row.className = "modal-actions";
+    var imp = document.createElement("button"); imp.className = "primary"; imp.textContent = "Import";
+    var cancel = document.createElement("button"); cancel.textContent = "Cancel";
+    row.appendChild(imp); row.appendChild(cancel);
+    frag.appendChild(row);
+    var overlay = showModal(frag);
+    ta.focus();
+    imp.addEventListener("click", function () {
+      var text = ta.value.trim();
+      if (!text) { toast("Nothing to import."); return; }
+      if (importFromText(text)) overlay.remove();
+    });
+    cancel.addEventListener("click", function () { overlay.remove(); });
+  });
+
+  // Import - File
   var fileInput = document.getElementById("fileInput");
-  function doImport() { fileInput.value = ""; fileInput.click(); }
+  document.getElementById("importFileBtn").addEventListener("click", function () {
+    fileInput.value = ""; fileInput.click();
+  });
   fileInput.addEventListener("change", function () {
     var f = fileInput.files && fileInput.files[0];
     if (!f) return;
     var reader = new FileReader();
-    reader.onload = function () {
-      if (!window.confirm("Import will replace everything currently in these lists. Continue?")) return;
-      try {
-        state = normalise(JSON.parse(String(reader.result)));
-        save(); syncScheduleInputs(); render();
-        toast("Imported.");
-      } catch (e) { toast("That file could not be read as valid JSON."); }
-    };
+    reader.onload = function () { importFromText(String(reader.result)); };
     reader.readAsText(f);
   });
-  document.getElementById("exportBtn2").addEventListener("click", doExport);
-  document.getElementById("importBtn2").addEventListener("click", doImport);
+
+  var lastExportedEl = document.getElementById("lastExported");
+  function formatExportDate(iso) {
+    return new Date(iso).toLocaleString("en-CA",
+      { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+  }
+  function updateLastExported() {
+    lastExportedEl.innerHTML = "";
+    var text = document.createElement("span");
+    var confirmed = state.lastExported && state.lastExported === state.lastExportedConfirmed;
+
+    if (state.lastExported) {
+      text.textContent = "Last exported: " + formatExportDate(state.lastExported);
+    } else {
+      text.textContent = "Never exported";
+    }
+    lastExportedEl.appendChild(text);
+
+    if (state.lastExported && confirmed) {
+      var check = document.createElement("span");
+      check.className = "export-confirmed";
+      check.textContent = "✓";
+      lastExportedEl.appendChild(check);
+    }
+
+    if (state.lastExported && !confirmed) {
+      var confirmBtn = document.createElement("button");
+      confirmBtn.className = "export-action confirm";
+      confirmBtn.textContent = "✓";
+      confirmBtn.setAttribute("aria-label", "Confirm this export");
+      confirmBtn.addEventListener("click", function () {
+        state.lastExportedConfirmed = state.lastExported;
+        save(); updateLastExported();
+      });
+      lastExportedEl.appendChild(confirmBtn);
+
+      var revertBtn = document.createElement("button");
+      revertBtn.className = "export-action revert";
+      revertBtn.textContent = "✕";
+      revertBtn.setAttribute("aria-label", "Revert to last confirmed export");
+      revertBtn.addEventListener("click", function () {
+        state.lastExported = state.lastExportedConfirmed;
+        save(); updateLastExported();
+      });
+      lastExportedEl.appendChild(revertBtn);
+    }
+  }
 
   // ---------- toast ----------
   var toastEl = document.getElementById("toast");
@@ -641,6 +848,7 @@
   purgeTrash();
   applyAutoReturn();
   syncScheduleInputs();
+  updateLastExported();
   render();
 
   document.addEventListener("visibilitychange", function () {

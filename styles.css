@@ -76,6 +76,15 @@ button.icon { min-width: var(--tap); padding: 0; font-size: 1.1rem; line-height:
 .list.collapsed .chev { transform: rotate(-90deg); }
 .list.fixed .chev { visibility: hidden; }
 
+/* header actions (right-aligned buttons) */
+.head-actions { display: flex; gap: 6px; margin-left: auto; }
+.head-btn {
+  min-height: 32px; padding: 0 10px; font-size: 0.8rem; border-radius: 8px;
+  white-space: nowrap;
+}
+.head-btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.head-btn:disabled { opacity: 0.4; cursor: default; }
+
 /* shared Today card: a thin light divider between list 0 and list 1 */
 .today-card .divider { height: 1px; background: var(--divider); margin: 0 12px; }
 
@@ -160,8 +169,37 @@ button.icon { min-width: var(--tap); padding: 0; font-size: 1.1rem; line-height:
   border: 1px solid var(--line); border-radius: 8px; min-height: 38px; padding: 0 8px;
 }
 .next-note { margin-top: 8px; font-size: 0.82rem; color: var(--ink-soft); }
+.last-exported { margin-top: 8px; font-size: 0.82rem; color: var(--ink-soft); display: flex; align-items: center; gap: 6px; }
+.export-confirmed { color: #3a8a4a; margin-left: 2px; }
+.export-action {
+  background: none; border: 1px solid var(--line); border-radius: 5px;
+  width: var(--tap); height: var(--tap); min-height: var(--tap); font-size: 0.85rem;
+  display: inline-flex; align-items: center; justify-content: center; padding: 0;
+}
+.export-action.confirm { color: #3a8a4a; }
+.export-action.revert { color: #8a4a4a; }
+.io-rows { display: flex; flex-direction: column; gap: 8px; }
 .io-row { display: flex; gap: 8px; }
 .io-row button { flex: 1; }
+
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100; padding: 16px;
+}
+.modal-box {
+  background: var(--surface); border-radius: var(--radius);
+  padding: 16px; width: 100%; max-width: 420px; max-height: 80vh;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.modal-box h3 { margin: 0; font-size: 1rem; }
+.modal-ta {
+  width: 100%; min-height: 200px; resize: vertical;
+  font-family: monospace; font-size: 0.82rem;
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px;
+  background: var(--surface-2); color: var(--ink);
+}
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
 .toast {
   position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
@@ -170,6 +208,20 @@ button.icon { min-width: var(--tap); padding: 0; font-size: 1.1rem; line-height:
   z-index: 50; max-width: 90%;
 }
 .toast.show { opacity: 1; }
+
+/* select-to-keep mode (after .item so backgrounds override) */
+.item.stk-mode { background: #eeeaf6; border-color: #c4b8df; padding: 10px 10px; }
+.item.stk-on { background: #e0daf0; border-color: #a594cc; }
+.stk-box {
+  flex-shrink: 0; width: 20px; height: 20px;
+  border: 2px solid #8b7ab8; border-radius: 5px;
+  position: relative; margin-left: 8px;
+}
+.item.stk-on .stk-box { background: #7c6aad; border-color: #7c6aad; }
+.item.stk-on .stk-box::after {
+  content: "\2713"; position: absolute; inset: 0;
+  color: #fff; font-size: 0.85rem; line-height: 16px; text-align: center;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, .chev { transition: none !important; }
