@@ -1,4 +1,4 @@
-var CACHE_NAME = "lists-v1";
+var CACHE_NAME = "lists-2026-06-28";
 var ASSETS = [
   "./",
   "./index.html",

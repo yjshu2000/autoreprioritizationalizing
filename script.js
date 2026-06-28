@@ -435,7 +435,7 @@
     li.dataset.id = item.id;
 
     li.appendChild(buildCheck(false, function () { completeItem(key, item.id); }));
-    li.appendChild(buildLabel(key, item));
+    li.appendChild(buildLabel(item));
 
     var actions = document.createElement("div");
     actions.className = "row-actions";
@@ -464,7 +464,7 @@
     li.dataset.id = item.id;
 
     li.appendChild(buildCheck(true, function () { uncompleteItem(item.id); }));
-    li.appendChild(buildLabel("completed", item));
+    li.appendChild(buildLabel(item));
 
     var actions = document.createElement("div");
     actions.className = "row-actions";
@@ -522,7 +522,7 @@
     return btn;
   }
 
-  function buildLabel(key, item) {
+  function buildLabel(item) {
     var label = document.createElement("span");
     label.className = "label";
     label.textContent = item.text;
