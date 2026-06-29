@@ -7,6 +7,9 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#4a6f8a">
+<script>
+(function(){var p=localStorage.getItem("fourlist.theme")||"system";var d=p==="dark"||(p==="system"&&matchMedia("(prefers-color-scheme:dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");if(d)document.querySelector('meta[name=theme-color]').content="#2c2c2c"})();
+</script>
 </head>
 <body>
   <header class="app">
@@ -46,6 +49,12 @@
     </div>
     <div class="last-exported" id="lastExported"></div>
   </section>
+
+  <div class="theme-switcher" id="themeSwitcher">
+    <button data-theme="light">Light</button>
+    <button data-theme="dark">Dark</button>
+    <button data-theme="system">System</button>
+  </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 

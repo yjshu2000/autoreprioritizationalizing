@@ -325,10 +325,13 @@
     li.className = "item stk-mode" + (selectToKeep.selected[item.id] ? " stk-on" : "");
     li.dataset.id = item.id;
 
+    var wrap = document.createElement("div");
+    wrap.className = "label-wrap";
     var label = document.createElement("span");
     label.className = "label";
     label.textContent = item.text;
-    li.appendChild(label);
+    wrap.appendChild(label);
+    li.appendChild(wrap);
 
     var box = document.createElement("span");
     box.className = "stk-box";
@@ -1117,7 +1120,39 @@
     toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 2200);
   }
 
+  // ---------- theme ----------
+  var THEME_KEY = "fourlist.theme";
+  function applyTheme(pref) {
+    var dark;
+    if (pref === "dark") dark = true;
+    else if (pref === "light") dark = false;
+    else dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", dark ? "#2c2c2c" : "#4a6f8a");
+  }
+  function initTheme() {
+    var pref = localStorage.getItem(THEME_KEY) || "system";
+    applyTheme(pref);
+    var switcher = document.getElementById("themeSwitcher");
+    var btns = switcher.querySelectorAll("button");
+    btns.forEach(function (btn) {
+      btn.classList.toggle("active", btn.dataset.theme === pref);
+      btn.addEventListener("click", function () {
+        var chosen = btn.dataset.theme;
+        localStorage.setItem(THEME_KEY, chosen);
+        applyTheme(chosen);
+        btns.forEach(function (b) { b.classList.toggle("active", b === btn); });
+      });
+    });
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
+      var cur = localStorage.getItem(THEME_KEY) || "system";
+      if (cur === "system") applyTheme("system");
+    });
+  }
+
   // ---------- boot ----------
+  initTheme();
   purgeTrash();
   applyAutoReturn();
   syncScheduleInputs();
