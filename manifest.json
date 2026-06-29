@@ -1,6 +1,6 @@
 {
-  "name": "Lists",
-  "short_name": "Lists",
+  "name": "Autoreprioritizationalizing",
+  "short_name": "AutoReList",
   "description": "Priority list manager",
   "start_url": "./index.html",
   "display": "standalone",

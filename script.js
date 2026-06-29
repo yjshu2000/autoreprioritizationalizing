@@ -1023,7 +1023,7 @@
   // Export - Share
   document.getElementById("exportShareBtn").addEventListener("click", function () {
     if (!navigator.share) { toast("Share not supported in this browser."); return; }
-    navigator.share({ title: "Lists backup", text: exportJSON() }).then(function () {
+    navigator.share({ title: "AutoReList backup", text: exportJSON() }).then(function () {
       markExported();
     }).catch(function () {});
   });
