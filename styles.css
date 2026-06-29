@@ -199,8 +199,9 @@ button.primary { background: var(--accent); color: var(--accent-ink); border-col
 .item-menu button {
   display: block; width: 100%; text-align: left; border: none; border-radius: 0;
   background: transparent; min-height: var(--tap); padding: 0 14px;
-  font-size: 0.92rem; color: var(--ink);
+  font-size: 0.92rem; color: var(--ink); border-top: 1px solid var(--line);
 }
+.item-menu button:first-child { border-top: none; }
 .item-menu button:active { background: var(--surface-2); }
 .item-menu button.danger { color: var(--danger); }
 
