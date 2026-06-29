@@ -269,7 +269,7 @@ button.primary { background: var(--accent); color: var(--accent-ink); border-col
 
 .toast {
   position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
-  background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 10px;
+  background: #1c1b19; color: #fff; padding: 10px 16px; border-radius: 10px;
   font-size: 0.9rem; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
   z-index: 50; max-width: 90%;
 }
