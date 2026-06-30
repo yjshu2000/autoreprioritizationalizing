@@ -5,7 +5,7 @@
   var WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
   // chain order for movement
-  var CHAIN = ["0", "1", "2", "3", "4"];
+  var CHAIN = ["0", "1", "2", "3", "3.5", "4"];
 
   var state = load();
   var selectToKeep = { active: false, selected: {} };
@@ -17,7 +17,7 @@
   function freshState() {
     return {
       version: 1,
-      items: { "0": [], "1": [], "2": [], "3": [], "4": [], completed: [], trash: [] },
+      items: { "0": [], "1": [], "2": [], "3": [], "3.5": [], "4": [], completed: [], trash: [] },
       collapsed: { "3": false, "4": true, completed: true, trash: true },
       schedule: { everyDays: 1, atMinutes: 0 },
       lastReturn: null,
@@ -53,7 +53,7 @@
     var s = freshState();
     if (obj && typeof obj === "object") {
       if (obj.items) {
-        ["0","1","2","3","4","completed"].forEach(function (k) {
+        ["0","1","2","3","3.5","4","completed"].forEach(function (k) {
           s.items[k] = cleanItems(obj.items[k]);
         });
         if (Array.isArray(obj.items.trash)) {
@@ -273,7 +273,7 @@
 
     var zoneTop = document.createElement("ul");
     zoneTop.className = "items";
-    fillZone(zoneTop, "0");
+    fillZone(zoneTop, "0", true);
     today.appendChild(zoneTop);
 
     var div = document.createElement("div");
@@ -282,7 +282,7 @@
 
     var zoneBot = document.createElement("ul");
     zoneBot.className = "items";
-    fillZone(zoneBot, "1");
+    fillZone(zoneBot, "1", true);
     today.appendChild(zoneBot);
 
     if (!selectToKeep.active && !(randomizer.active && randomizer.target === "today")) today.appendChild(buildAdder("1"));
@@ -294,8 +294,31 @@
     // Completed purgatory (collapsible)
     appEl.appendChild(renderCard("completed", "Completed", { collapsible: true, kind: "completed" }));
 
-    // List 3, List 4
-    appEl.appendChild(renderCard("3", "List 3", { collapsible: true }));
+    // List 3: collapsible card, two zones split by a divider.
+    // Above the divider = backend "3" (closer to list 2), below = backend "3.5" (further, but not list 4 far).
+    var collapsed3 = state.collapsed["3"];
+    var list3 = document.createElement("section");
+    list3.className = "card list" + (collapsed3 ? " collapsed" : "");
+    list3.appendChild(buildHead("3", "List 3", { collapsible: true, countKeys: ["3", "3.5"] }));
+
+    var zone3Top = document.createElement("ul");
+    zone3Top.className = "items";
+    fillZone(zone3Top, "3");
+    list3.appendChild(zone3Top);
+
+    var div3 = document.createElement("div");
+    div3.className = "divider";
+    list3.appendChild(div3);
+
+    var zone3Bot = document.createElement("ul");
+    zone3Bot.className = "items";
+    fillZone(zone3Bot, "3.5");
+    list3.appendChild(zone3Bot);
+
+    list3.appendChild(buildAdder("3.5"));
+    appEl.appendChild(list3);
+
+    // List 4
     appEl.appendChild(renderCard("4", "List 4", { collapsible: true }));
 
     // Trash (collapsible, no count)
@@ -304,8 +327,9 @@
     updateNextNote();
   }
 
-  // fill a zone (one of the two halves of the Today card) with rows for a key
-  function fillZone(ul, key) {
+  // fill a zone (one of the two halves of a split card) with rows for a key.
+  // scoped = true only for the Today card's zones, which support select-to-keep / randomizer.
+  function fillZone(ul, key, scoped) {
     var arr = state.items[key];
     if (arr.length === 0) {
       var empty = document.createElement("li");
@@ -315,8 +339,8 @@
       return;
     }
     arr.forEach(function (item) {
-      if (randomizer.active && randomizer.target === "today") ul.appendChild(buildRandomizerRow(item));
-      else ul.appendChild(selectToKeep.active ? buildSelectRow(item) : buildMainRow(key, item));
+      if (scoped && randomizer.active && randomizer.target === "today") ul.appendChild(buildRandomizerRow(item));
+      else ul.appendChild(scoped && selectToKeep.active ? buildSelectRow(item) : buildMainRow(key, item));
     });
   }
 
@@ -892,13 +916,14 @@
 
   function swipeCore(el, onCommit) {
     var startX = 0, startY = 0, dx = 0, dy = 0, tracking = false, swiped = false;
-    var THRESH = 60;
+    var THRESH = 80;
+    var origBg = "";
     el.addEventListener("touchstart", function (e) {
       if (e.touches.length !== 1) return;
-      // only skip while actively editing this row's text
       if (e.target.closest(".label-edit")) { tracking = false; return; }
       tracking = true; swiped = false;
       startX = e.touches[0].clientX; startY = e.touches[0].clientY; dx = 0; dy = 0;
+      origBg = el.style.backgroundColor;
     }, { passive: true });
     el.addEventListener("touchmove", function (e) {
       if (!tracking) return;
@@ -908,12 +933,18 @@
         swiped = true;
         el.style.transform = "translateX(" + dx * 0.5 + "px)";
         el.style.opacity = String(Math.max(0.4, 1 - Math.abs(dx) / 300));
+        if (Math.abs(dx) > THRESH) {
+          el.style.backgroundColor = "color-mix(in srgb, var(--success) 30%, transparent)";
+        } else {
+          el.style.backgroundColor = origBg;
+        }
       }
     }, { passive: true });
     el.addEventListener("touchend", function (e) {
       if (!tracking) return;
       tracking = false;
       el.style.transform = ""; el.style.opacity = "";
+      el.style.backgroundColor = origBg;
       if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > THRESH) {
         // a real swipe happened: stop the underlying button's click from firing
         var btn = e.target.closest("button");

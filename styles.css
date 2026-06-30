@@ -125,8 +125,9 @@ button.primary { background: var(--accent); color: var(--accent-ink); border-col
 .head-btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
 .head-btn:disabled { opacity: 0.4; cursor: default; }
 
-/* shared Today card: a thin light divider between list 0 and list 1 */
-.today-card .divider { height: 1px; background: var(--divider); margin: 0 12px; }
+/* shared zone divider: a thin light line between two zones in a split card */
+.list .divider { height: 1px; background: var(--divider); margin: 0 12px; }
+.list.collapsed .divider { display: none; }
 
 .items {
   list-style: none; margin: 0; padding: 6px;
